@@ -5,4 +5,12 @@ The [paper](https://riak.com/assets/bitcask-intro.pdf) post by riak will show yo
 # About This Project
 This Project is bitcask implementation in Golang. It's just for understand bitcask, **not** for production.
 
-# Architecture
+# TL;DR
+```shell
+make build
+./bin/bitcask
+>>> put a b
+>>> list
+>>> get a
+>>> exit
+```
