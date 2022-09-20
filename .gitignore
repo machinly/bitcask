@@ -13,3 +13,9 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Database Data
+dbdata/
+
+# Binaries in dir bin
+bin/
