@@ -2,10 +2,10 @@ package engine
 
 import (
 	"errors"
-	"io"
 	"time"
 
 	"github.com/machinly/bitcask/engine/dbfile"
+	"github.com/machinly/bitcask/engine/index"
 	"github.com/machinly/bitcask/engine/record"
 )
 
@@ -19,15 +19,8 @@ type Engine interface {
 	Close() bool
 }
 
-type indexSet struct {
-	fileId        string
-	valueSize     int64
-	valuePosition int64
-	tstamp        int64
-}
-
 type bitcask struct {
-	index  map[string]indexSet
+	index  map[string]index.Set
 	dbFile dbfile.DBFile
 }
 
@@ -37,7 +30,7 @@ func OpenBitcaskEngine(dirName string) (Engine, error) {
 		return nil, err
 	}
 	bc := &bitcask{
-		index:  make(map[string]indexSet),
+		index:  make(map[string]index.Set),
 		dbFile: dbFile,
 	}
 
@@ -50,41 +43,14 @@ func OpenBitcaskEngine(dirName string) (Engine, error) {
 }
 
 func (c *bitcask) buildIndex() error {
-	index := make(map[string]indexSet)
+	index := make(map[string]index.Set)
 	deleteList := make([]string, 0)
 	for _, fileName := range c.dbFile.FileList() {
 		pos := int64(0)
-		err := c.dbFile.ReadAll(fileName, func(ret int64, reader io.Reader) error {
-			r, err := record.ParseRecord(reader)
-			if err != nil {
-				return err
-			}
-			if v, ok := index[r.Key()]; ok {
-				if v.tstamp < r.Timestamp() {
-					index[r.Key()] = indexSet{
-						fileId:        fileName,
-						valuePosition: pos + r.ValueRelativePosition(),
-						valueSize:     r.ValueSize(),
-						tstamp:        r.Timestamp(),
-					}
-				}
-			} else {
-				index[r.Key()] = indexSet{
-					fileId:        fileName,
-					valuePosition: ret + r.ValueRelativePosition(),
-					valueSize:     r.ValueSize(),
-					tstamp:        r.Timestamp(),
-				}
-			}
-			pos += r.Len()
-			return nil
-		})
-		if err != nil {
-			return err
-		}
+
 	}
 	for k, v := range index {
-		if v.valueSize == 0 {
+		if v.ValueSize == 0 {
 			deleteList = append(deleteList, k)
 		}
 	}
@@ -108,7 +74,7 @@ func (c *bitcask) Put(key string, value string) error {
 	if err != nil {
 		return err
 	}
-	c.index[key] = indexSet{
+	c.index[key] = index.Set{
 		fileId:        fileName,
 		valuePosition: r.ValueRelativePosition() + ret,
 		valueSize:     r.ValueSize(),
@@ -119,11 +85,11 @@ func (c *bitcask) Put(key string, value string) error {
 
 func (c *bitcask) Get(key string) (string, error) {
 	vSet, ok := c.index[key]
-	if !ok || vSet.valueSize == 0 {
+	if !ok || vSet.ValueSize == 0 {
 		return "", errors.New("key not found")
 	}
 	buf := make([]byte, vSet.valueSize)
-	n, err := c.dbFile.Read(vSet.fileId, vSet.valuePosition, buf)
+	n, err := c.dbFile.Read(vSet.FileId, vSet.ValuePosition, buf)
 	if err != nil {
 		return "", err
 	}
